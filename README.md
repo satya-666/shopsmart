@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🛒 ShopSmart
 
 A full-stack e-commerce-style web application built with modern technologies, featuring a RESTful API, database integration, and cloud deployment.
@@ -70,6 +71,8 @@ npm start
 Satya
 
 
+=======
+>>>>>>> d196d01 (Initial import of shopsmart)
 # Instructions
 
 1. Use SQLITE3 for database storage implementation
