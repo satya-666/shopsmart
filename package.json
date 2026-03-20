@@ -1,0 +1,16 @@
+{
+  "name": "shopsmart-main",
+  "version": "1.0.0",
+  "description": "<<<<<<< HEAD # 🛒 ShopSmart",
+  "main": "index.js",
+  "scripts": {
+    "test:e2e": "playwright test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.5.0"
+  }
+}
