@@ -3,7 +3,7 @@
 INSTANCE_ID="i-0e54c628a35a0cd63"
 
 if [ -z "$1" ]; then
-  echo "Usage: $0 start|stop"
+  echo "Usage: $0 start|stop|restart"
   exit 1
 fi
 
@@ -46,6 +46,21 @@ if [ "$1" = "stop" ]; then
   exit 1
 fi
 
+if [ "$1" = "restart" ]; then
+  echo "Restarting instance $INSTANCE_ID..."
+  if [ "$STATE" = "running" ]; then
+    aws ec2 stop-instances --instance-ids "$INSTANCE_ID" >/dev/null
+    echo "Stop command issued. Must wait to come back up."
+  elif [ "$STATE" = "stopped" ]; then
+    aws ec2 start-instances --instance-ids "$INSTANCE_ID" >/dev/null
+    echo "Start command issued."
+  else
+    echo "Instance is in state '$STATE'. Cannot restart now."
+    exit 1
+  fi
+  exit 0
+fi
+
 echo "Invalid command: $1"
-echo "Usage: $0 start|stop"
+echo "Usage: $0 start|stop|restart"
 exit 1
