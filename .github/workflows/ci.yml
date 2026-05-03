@@ -33,8 +33,15 @@ jobs:
       - name: Run Linter
         run: npm run lint
 
-      - name: Run Tests
-        run: npm test -- --run
+      - name: Run Tests with Coverage
+        run: npm test -- --run --reporter=json --outputFile=test-report.json
+
+      - name: Upload Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-test-report
+          path: client/test-report.json
 
   server:
     name: Server Checks
@@ -60,5 +67,12 @@ jobs:
       - name: Run Linter
         run: npm run lint
 
-      - name: Run Tests
-        run: npm test
+      - name: Run Tests with Coverage
+        run: npm test -- --coverage --json --outputFile=test-report.json
+
+      - name: Upload Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-test-report
+          path: server/test-report.json

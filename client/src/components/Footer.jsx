@@ -1,4 +1,4 @@
-import { ShoppingCart, Github, Twitter, Mail } from 'lucide-react';
+import { ShoppingCart, Globe, MessageCircle, Mail } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -19,10 +19,10 @@ export default function Footer() {
           <h4>Connect</h4>
           <div className="social-icons">
             <a href="https://github.com" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
-              <Github size={20} />
+              <Globe size={20} />
             </a>
             <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
-              <Twitter size={20} />
+              <MessageCircle size={20} />
             </a>
             <a href="mailto:support@shopsmart.com" aria-label="Email">
               <Mail size={20} />
