@@ -18,7 +18,8 @@ export function registerUser({ name, email, password }) {
   const newUser = { id: Date.now(), name, email, password };
   users.push(newUser);
   saveUsers(users);
-  const { password: _, ...userWithoutPassword } = newUser;
+  // eslint-disable-next-line no-unused-vars
+  const { password: _password, ...userWithoutPassword } = newUser;
   return Promise.resolve({ user: userWithoutPassword, token: `token-${newUser.id}` });
 }
 
@@ -28,7 +29,8 @@ export function loginUser({ email, password }) {
   if (!user) {
     return Promise.reject(new Error('Invalid email or password'));
   }
-  const { password: _, ...userWithoutPassword } = user;
+  // eslint-disable-next-line no-unused-vars
+  const { password: _password, ...userWithoutPassword } = user;
   const session = { user: userWithoutPassword, token: `token-${user.id}` };
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   return Promise.resolve(session);

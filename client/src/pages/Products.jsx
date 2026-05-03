@@ -5,7 +5,7 @@ import ProductCard from '../components/ProductCard';
 import { getAllProducts, getCategories, searchProducts } from '../services/productService';
 
 export default function Products() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
