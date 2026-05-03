@@ -39,3 +39,15 @@ variable "fargate_memory" {
   type        = string
   default     = "512"
 }
+
+variable "execution_role_name" {
+  description = "Name of existing IAM role for ECS task execution"
+  type        = string
+  default     = "LabRole"
+}
+
+variable "task_role_name" {
+  description = "Name of existing IAM role for ECS tasks"
+  type        = string
+  default     = "LabRole"
+}

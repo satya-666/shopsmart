@@ -73,26 +73,125 @@ jobs:
         with:
           terraform_version: "1.7.0"
 
+      - name: Cleanup Existing Resources
+        run: |
+          set +e
+          echo "Getting AWS Account ID..."
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "Account ID: $ACCOUNT_ID"
+
+          echo "Cleaning up ALB..."
+          ALB_ARN=$(aws elbv2 describe-load-balancers --names shopsmart-alb --query 'LoadBalancers[0].LoadBalancerArn' --output text 2>/dev/null)
+          if [ -n "$ALB_ARN" ] && [ "$ALB_ARN" != "None" ]; then
+            aws elbv2 delete-load-balancer --load-balancer-arn "$ALB_ARN" 2>/dev/null
+            sleep 30
+          fi
+
+          echo "Cleaning up Target Group..."
+          TG_ARN=$(aws elbv2 describe-target-groups --names shopsmart-tg --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null)
+          if [ -n "$TG_ARN" ] && [ "$TG_ARN" != "None" ]; then
+            aws elbv2 delete-target-group --target-group-arn "$TG_ARN" 2>/dev/null
+          fi
+
+          echo "Cleaning up ECR repository..."
+          aws ecr delete-repository --repository-name shopsmart --force 2>/dev/null
+
+          echo "Cleaning up CloudWatch log group..."
+          aws logs delete-log-group --log-group-name /ecs/shopsmart 2>/dev/null
+
+          echo "Cleaning up ECS service..."
+          aws ecs update-service --cluster shopsmart-cluster --service shopsmart-service --desired-count 0 2>/dev/null
+          aws ecs delete-service --cluster shopsmart-cluster --service shopsmart-service --force 2>/dev/null
+
+          echo "Cleaning up ECS cluster..."
+          aws ecs delete-cluster --cluster shopsmart-cluster 2>/dev/null
+
+          echo "Deregistering task definitions..."
+          TASK_DEFS=$(aws ecs list-task-definitions --family-prefix shopsmart --query 'taskDefinitionArns' --output text 2>/dev/null)
+          for td in $TASK_DEFS; do
+            aws ecs deregister-task-definition --task-definition "$td" 2>/dev/null
+          done
+
+          echo "Cleaning up S3 buckets..."
+          aws s3 rm s3://shopsmart-tf-state-$ACCOUNT_ID --recursive 2>/dev/null
+          aws s3api delete-bucket --bucket shopsmart-tf-state-$ACCOUNT_ID 2>/dev/null
+          aws s3 rm s3://shopsmart-artifacts-$ACCOUNT_ID --recursive 2>/dev/null
+          aws s3api delete-bucket --bucket shopsmart-artifacts-$ACCOUNT_ID 2>/dev/null
+
+          echo "Cleaning up VPC..."
+          VPC_ID=$(aws ec2 describe-vpcs --filters "Name=tag:Name,Values=shopsmart-vpc" --query 'Vpcs[0].VpcId' --output text 2>/dev/null)
+          if [ -n "$VPC_ID" ] && [ "$VPC_ID" != "None" ]; then
+            echo "Found VPC: $VPC_ID"
+            aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$VPC_ID" --query 'SecurityGroups[?GroupName!=`default`].GroupId' --output text 2>/dev/null | tr '\t' '\n' | while read sg; do
+              [ -n "$sg" ] && aws ec2 delete-security-group --group-id "$sg" 2>/dev/null
+            done
+            aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --query 'Subnets[*].SubnetId' --output text 2>/dev/null | tr '\t' '\n' | while read sn; do
+              [ -n "$sn" ] && aws ec2 delete-subnet --subnet-id "$sn" 2>/dev/null
+            done
+            aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$VPC_ID" --query 'RouteTables[?Associations[0].Main!=`true`||length(Associations)==`0`].RouteTableId' --output text 2>/dev/null | tr '\t' '\n' | while read rt; do
+              [ -n "$rt" ] && aws ec2 delete-route-table --route-table-id "$rt" 2>/dev/null
+            done
+            IGW_ID=$(aws ec2 describe-internet-gateways --filters "Name=attachment.vpc-id,Values=$VPC_ID" --query 'InternetGateways[0].InternetGatewayId' --output text 2>/dev/null)
+            if [ -n "$IGW_ID" ] && [ "$IGW_ID" != "None" ]; then
+              aws ec2 detach-internet-gateway --internet-gateway-id "$IGW_ID" --vpc-id "$VPC_ID" 2>/dev/null
+              aws ec2 delete-internet-gateway --internet-gateway-id "$IGW_ID" 2>/dev/null
+            fi
+            NAT_IDS=$(aws ec2 describe-nat-gateways --filter "Name=vpc-id,Values=$VPC_ID" --query 'NatGateways[*].NatGatewayId' --output text 2>/dev/null)
+            for nat in $NAT_IDS; do
+              [ -n "$nat" ] && aws ec2 delete-nat-gateway --nat-gateway-id "$nat" 2>/dev/null
+            done
+            sleep 30
+            aws ec2 delete-vpc --vpc-id "$VPC_ID" 2>/dev/null
+          fi
+          echo "Cleanup complete."
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Detect IAM Role
+        id: detect-role
+        run: |
+          for ROLE in LabRole ecsTaskExecutionRole; do
+            if aws iam get-role --role-name "$ROLE" >/dev/null 2>&1; then
+              echo "Found IAM role: $ROLE"
+              echo "execution_role_name=$ROLE" >> $GITHUB_OUTPUT
+              echo "task_role_name=$ROLE" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          done
+          echo "ERROR: No suitable IAM role found (tried LabRole, ecsTaskExecutionRole)."
+          echo "Please create an IAM role named 'ecsTaskExecutionRole' with the AmazonECSTaskExecutionRolePolicy attached."
+          exit 1
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
       - name: Terraform Init
         run: terraform init
         env:
           TF_VAR_aws_region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          TF_VAR_execution_role_name: ${{ steps.detect-role.outputs.execution_role_name }}
+          TF_VAR_task_role_name: ${{ steps.detect-role.outputs.task_role_name }}
 
       - name: Terraform Validate
         run: terraform validate
         env:
           TF_VAR_aws_region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          TF_VAR_execution_role_name: ${{ steps.detect-role.outputs.execution_role_name }}
+          TF_VAR_task_role_name: ${{ steps.detect-role.outputs.task_role_name }}
 
       - name: Terraform Plan
         run: terraform plan -input=false
         env:
           TF_VAR_aws_region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          TF_VAR_execution_role_name: ${{ steps.detect-role.outputs.execution_role_name }}
+          TF_VAR_task_role_name: ${{ steps.detect-role.outputs.task_role_name }}
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main'
         run: terraform apply -auto-approve -input=false
         env:
           TF_VAR_aws_region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          TF_VAR_execution_role_name: ${{ steps.detect-role.outputs.execution_role_name }}
+          TF_VAR_task_role_name: ${{ steps.detect-role.outputs.task_role_name }}
 
       - name: Export Terraform Outputs
         if: github.ref == 'refs/heads/main'
