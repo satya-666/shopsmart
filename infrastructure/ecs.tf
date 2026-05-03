@@ -11,18 +11,6 @@ resource "aws_ecs_cluster" "main" {
   }
 }
 
-resource "aws_ecs_cluster_capacity_providers" "main" {
-  cluster_name = aws_ecs_cluster.main.name
-
-  capacity_providers = ["FARGATE"]
-
-  default_capacity_provider_strategy {
-    base              = 1
-    weight            = 1
-    capacity_provider = "FARGATE"
-  }
-}
-
 resource "aws_cloudwatch_log_group" "app" {
   name              = "/ecs/${var.project_name}"
   retention_in_days = 7

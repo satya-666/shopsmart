@@ -1,6 +1,6 @@
 # S3 Bucket for Terraform State
 resource "aws_s3_bucket" "terraform_state" {
-  bucket = "${var.project_name}-terraform-state-${random_string.bucket_suffix.result}"
+  bucket = "${var.project_name}-tf-state-${data.aws_caller_identity.current.account_id}"
 }
 
 resource "aws_s3_bucket_versioning" "terraform_state" {
@@ -32,7 +32,7 @@ resource "aws_s3_bucket_public_access_block" "terraform_state" {
 
 # S3 Bucket for artifacts / test reports
 resource "aws_s3_bucket" "artifacts" {
-  bucket = "${var.project_name}-artifacts-${random_string.bucket_suffix.result}"
+  bucket = "${var.project_name}-artifacts-${data.aws_caller_identity.current.account_id}"
 }
 
 resource "aws_s3_bucket_versioning" "artifacts" {
@@ -62,8 +62,4 @@ resource "aws_s3_bucket_public_access_block" "artifacts" {
   restrict_public_buckets = true
 }
 
-resource "random_string" "bucket_suffix" {
-  length  = 8
-  special = false
-  upper   = false
-}
+
